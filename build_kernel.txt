@@ -1,0 +1,20 @@
+
+When building kernel-6.15.2, it reports an error as the following: 
+
+CC      kernel/jump_label.o
+CC      kernel/iomem.o
+CC      kernel/rseq.o
+AR      kernel/built-in.a
+CC      certs/system_keyring.o
+make[1]: *** No rule to make target 'debian/certs/debian-uefi-certs.pem', needed by 'certs/x509_certificate_list'.  Stop.
+make: *** [Makefile:1851: certs] Error 2
+
+
+Solution: 
+Change configuration file before building the kernel. 
+
+scripts/config --disable SYSTEM_TRUSTED_KEYS
+scripts/config --disable SYSTEM_REVOCATION_KEYS
+
+
+It works well. 
