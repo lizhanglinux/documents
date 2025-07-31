@@ -1,0 +1,117 @@
+#!/usr/bin/env bpftrace
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Copyright (C) 2024  Red Hat, Inc.
+ *
+ * Author: Gavin Shan <gshan@redhat.com>
+ */
+
+BEGIN {
+    printf("------------------------------------------\n");
+    @vma_addr = 0;
+    @enabled = 0;
+}
+
+tracepoint:syscalls:sys_enter_mmap {
+    if (!strncmp(comm, "test", 4) &&
+        args->len == 0x200000     &&
+        args->prot == 0x3         &&
+        args->flags == 0x22) {
+        @enabled = 1;
+        printf("===> pid: %d  task: %s\n", pid, comm);
+        printf("mmap\n");
+        printf("  addr=0x%lx, len=0x%lx, prot=0x%lx, flags=0x%lx, fd=0x%lx, off=0x%lx\n",
+               args->addr, args->len, args->prot, args->flags, args->fd, args->off);
+    }
+}
+
+kretprobe:get_unmapped_area / @enabled / {
+    if (!strncmp(comm, "test", 4)) {
+        printf("get_unmapped_area\n");
+        printf("   address: 0x%lx\n", retval);
+        @vma_addr = retval;
+    }
+}
+
+tracepoint:syscalls:sys_exit_mmap / @enabled / {
+    if (!strncmp(comm, "test", 4)) {
+        @enabled = 0;
+    }
+}
+
+kprobe:handle_mm_fault {
+    if (!strncmp(comm, "test", 4)         &&
+        @vma_addr > 0                     &&
+        (uint64)arg1 >= (uint64)@vma_addr &&
+        (uint64)arg1 < ((uint64)@vma_addr + 0x200000)) {
+        $vma = (struct vm_area_struct *)arg0;
+        @enabled = 1;
+        printf("===> pid: %d  task: %s\n", pid, comm);
+        printf("handle_mm_fault\n");
+        printf("  vma=0x%lx, address=0x%lx, flags=0x%x, regs=0x%lx\n",
+               (uint64)arg0, (uint64)arg1, (uint32)arg2, (uint64)arg3);
+        printf("  vma->vm_start:           0x%lx\n", $vma->vm_start);
+        printf("  vma->vm_end:             0x%lx\n", $vma->vm_end);
+        printf("  vma->vm_mm:              0x%lx\n", (uint64)($vma->vm_mm));
+        printf("  vma->vm_page_prot:       0x%lx\n", $vma->vm_page_prot.pgprot);
+        printf("  vma->vm_flags:           0x%lx\n", $vma->vm_flags);
+        printf("  vma->anon_vma_chain:     0x%lx  0x%lx\n",
+               (uint64)($vma->anon_vma_chain.next), (uint64)($vma->anon_vma_chain.prev));
+        printf("  vma->anon_vma:           0x%lx\n", (uint64)($vma->anon_vma));
+        printf("  vma->vm_ops:             0x%lx\n", (uint64)($vma->vm_ops));
+        printf("  vma->vm_pgoff:           0x%lx\n", $vma->vm_pgoff);
+        printf("  vma->vm_file:            0x%lx\n", (uint64)($vma->vm_file));
+        printf("  vma->vm_private_data     0x%lx\n", (uint64)($vma->vm_private_data));
+    }
+}
+
+kprobe:__handle_mm_fault / @enabled / {
+    if (!strncmp(comm, "test", 4)) {
+        printf("__handle_mm_fault\n");
+    }
+}
+
+kprobe:handle_pte_fault / @enabled / {
+    if (!strncmp(comm, "test", 4)) {
+        printf("handle_pte_fault\n");
+    }
+}
+
+kprobe:do_pte_missing / @enabled / {
+    if (!strncmp(comm, "test", 4)) {
+        printf("do_pte_missing\n");
+    }
+}
+
+kprobe:do_anonymous_page / @enabled / {
+    if (!strncmp(comm, "test", 4)) {
+        $vmf = (struct vm_fault *)arg0;
+        printf("do_anonymous_page\n");
+        printf("  vmf->vma:           0x%lx\n", (uint64)($vmf->vma));
+        printf("  vmf->gfp_mask:      0x%x\n",  $vmf->gfp_mask);
+        printf("  vmf->pgoff:         0x%lx\n", $vmf->pgoff);
+        printf("  vmf->address:       0x%lx\n", $vmf->address);
+        printf("  vmf->real_address:  0x%lx\n", $vmf->real_address);
+        printf("  vmf->flags:         0x%x\n",  $vmf->flags);
+        printf("  vmf->pmd:           0x%lx\n", (uint64)($vmf->pmd));
+        printf("  vmf->pud:           0x%lx\n", (uint64)($vmf->pud));
+        printf("  vmf->orig_pte:      0x%lx\n", $vmf->orig_pte.pte);
+        printf("  vmf->cow_page:      0x%lx\n", (uint64)($vmf->cow_page));
+        printf("  vmf->page:          0x%lx\n", (uint64)($vmf->page));
+        printf("  vmf->pte:           0x%lx\n", (uint64)($vmf->pte));
+        printf("  vmf->ptl:           0x%lx\n", (uint64)($vmf->ptl));
+        printf("  vmf->prealloc_pte:  0x%lx\n", (uint64)($vmf->prealloc_pte));
+    }
+}
+
+kretprobe:handle_mm_fault / @enabled / {
+    if (!strncmp(comm, "test", 4)) {
+        @enabled = 0;
+    }
+}
+
+END {
+    clear(@enabled);
+    clear(@vma_addr);
+    printf("------------------------------------------\n");
+}
