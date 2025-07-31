@@ -1,0 +1,14 @@
+
+kpatch:  https://github.com/dynup/kpatch.git
+
+kpatch is a tool to build live patching. 
+The patches should be refined for live patching.
+For some kernel patches, which has static_call, 
+we need to replace it with KPATCH_STATIC_CALL macro for live patching. 
+And some definitions in linux kernel headers, it doesn't work for live patching.
+We need to add these definitions in .c files. 
+
+
+kvm_x86_call(get_exit_info) -> KPATCH_STATIC_CALL(get_exit_info) ();
+
+
