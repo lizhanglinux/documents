@@ -1,0 +1,72 @@
+BPF: 
+
+# For bpftrace
+sudo apt-get install bpftrace
+
+# For bcc tools
+sudo apt-get install bpfcc-tools linux-headers-$(uname -r)
+
+
+Could not resolve symbol: /proc/self/exe:BEGIN_trigger. 
+Debug package, xxx-dbgsym
+
+
+echo "deb http://ddebs.ubuntu.com $(lsb_release -cs) main restricted universe multiverse
+deb http://ddebs.ubuntu.com $(lsb_release -cs)-updates main restricted universe multiverse
+deb http://ddebs.ubuntu.com $(lsb_release -cs)-proposed main restricted universe multiverse" | \
+sudo tee -a /etc/apt/sources.list.d/ddebs.list
+sudo apt install ubuntu-dbgsym-keyring
+sudo apt update
+sudo apt install bpftrace-dbgsym
+
+
+sudo wget -O- http://ddebs.ubuntu.com/dbgsym-release-key.asc | sudo apt-key add -
+$ sudo apt update
+
+
+
+
+
+
+sudo virsh qemu-monitor-command Droplet-408975245 block-latency-histogram-set '{"id":"ua-ceph-21175590-1af0-11ee-9a05-0a58ac14d046","boundaries":[1,10,100,1000,10000,100000,1000000,10000000]}'
+
+9
+
+sudo virsh qemu-monitor-command Droplet-408975245  --cmd '{"execute":"query-block"}'
+
+
+sudo virsh qemu-monitor-command Droplet-408975245  --cmd '{"execute":"query-blockstats”}’
+
+
+sudo bpftrace -e 'uprobe:/usr/bin/qemu-system-x86_64:virtio_blk_handle_request /pid == 186742/{printf("Function %s called by PID %d\n", func, pid);}'
+
+
+ "flush_latency_histogram": {
+    "bins": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      149,
+      110,
+      0
+    ],
+    "boundaries": [
+      1,
+      10,
+      100,
+      1000,
+      10000,
+      100000,
+      1000000,
+      10000000
+    ]
+  }
+
+
+3331064777 qemu-system-x86  2086147 Write operation took 145217 nanoseconds
+3331065036 qemu-system-x86  2086147 Write operation took 6151000 nanoseconds
+3331065277 qemu-system-x86  2086147 Write operation took 107629 nanoseconds
+3331065278 qemu-system-x86  2086147 Write operation took 25631 nanoseconds
