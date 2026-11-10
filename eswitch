@@ -1,0 +1,14 @@
+eSwitch Mode (Switchdev and Legacy)
+Modern network controllers have a complex embedded switch, referred to as an eSwitch or a Virtual Ethernet Bridge (VEB). This eSwitch is configured and controlled by the Physical Function driver (PF driver or LAN driver) per-port on the Ethernet controller.
+Starting with the Linux ice PF driver 1.5.8 and NVM 2.50 on 800 Series controllers, the eSwitch can be configured per-PF into one of two states through a devlink interface:
+* eSwitch Legacy mode (default)
+* eSwitch switchdev mode
+
+In the default state (referred to as Legacy mode), the PF driver has limited control of the VFs attached to it. SR-IOV-based VMs, or Containers in the default eSwitch legacy mode, bypass the hypervisor and the software virtual switch (OVS or Linux Bridge) completely. By default, only MAC and VLAN filters are added by the PF driver to the VFs at the hardware level. All other configurations are added through software (either through the Linux Bridge or OVS) and do not take advantage of hardware switching capabilities by the Ethernet controller.
+In switchdev mode, the PF driver supports a standard Linux kernel abstraction layer (switchdev) to expose the control plane of the Ethernet controller's eSwitch to the software vSwitch (OVS/Linux Bridge). Each port attached to the eSwitch is represented as a Port Representor (PR) netdev that provides a hook to configure and control VM guest or container VF network interfaces. This enables limited vSwitch functionality offload to the Ethernet controller to allow for OVS/Linux Bridge hardware-assist support.
+Technical Details: eSwitch Switchdev Mode explains more about the eSwitch in switchdev mode on an 800 Series controller.
+
+Hardware and Software Requirements
+
+Technical Details: eSwitch Legacy Mode
+
