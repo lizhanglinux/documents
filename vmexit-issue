@@ -1,0 +1,55 @@
+
+
+VMEXIT issue: 
+
+#define EXIT_REASON_RDMSR 31
+
+
+https://access.redhat.com/solutions/3440541
+
+
+#define EXIT_REASON_EPT_MISCONFIG       49
+
+https://lore.kernel.org/kvm/fba03de3-f44b-4a2d-a15a-4071c5b09427@gmail.com/T/
+
+https://patches.linaro.org/project/linux-kselftest/patch/20240923141810.76331-2-iorlov@amazon.com/
+
+https://lore.kernel.org/kvm/fba03de3-f44b-4a2d-a15a-4071c5b09427@gmail.com/T/
+
+
+https://xem.github.io/minix86/manual/intel-x86-and-64-manual-vol3/o_fe12b1e2a880e0ce-1155.html
+
+https://lkml.rescloud.iu.edu/1711.3/06342.html
+
+https://lkml.rescloud.iu.edu/1711.3/06342.html
+
+
+Patches V3:     https://marc.info/?l=kvm&m=173445923430828&w=2 
+
+
+> diff --git a/x86/emulator.c b/x86/emulator.c
+> index 977ec75..72cb035 100644
+> --- a/x86/emulator.c
+> +++ b/x86/emulator.c
+> @@ -1124,7 +1124,6 @@ int main()
+> alt_insn_page = alloc_page();
+> insn_ram = vmap(virt_to_phys(insn_page), 4096);
+>
+> - test_fetch_failure(mem, alt_insn_page);
+>
+> // test mov reg, r/m and mov r/m, reg
+> t1 = 0x123456789abcdef;
+> @@ -1135,6 +1134,8 @@ int main()
+> : "memory");
+> report("mov reg, r/m (1)", t2 == 0x123456789abcdef);
+>
+> + test_fetch_failure(mem, alt_insn_page);
+> +
+> test_simplealu(mem);
+> test_cmps(mem);
+> test_scas(mem);
+>
+> then I get a KVM_INTERNAL_ERROR_DELIVERY_EV:
+>
+> $ /usr/bin/qemu-system-x86_64 -nodefaults -device pc-testdev -device isa-debug-exit,iobase=0xf4,iosize=0x4 -vnc none -serial stdio -device pci-testdev -machine accel=kvm -kernel ./x86/emulator.flat # -initrd /tmp/tmp.lmXZa46TEA
+
