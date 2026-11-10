@@ -1,0 +1,265 @@
+Kernel /kvm issue: 
+
+
+
+
+# ==== Test Assertion Failure ====
+#   lib/x86/processor.c:581: Unconditional guest failure
+#   pid=574586 tid=574586 errno=4 - Interrupted system call
+#      1	0x0000000000412ec9: assert_on_unhandled_exception at processor.c:625
+#      2	0x0000000000407aa6: _vcpu_run at kvm_util.c:1733
+#      3	 (inlined by) vcpu_run at kvm_util.c:1744
+#      4	0x00000000004028ac: test_mmio_testing at set_memory_region_test.c:588
+#      5	 (inlined by) main at set_memory_region_test.c:658
+#      6	0x00007b154502a3b7: ?? ??:0
+#      7	0x00007b154502a47a: ?? ??:0
+#      8	0x0000000000403364: _start at ??:?
+#   Unhandled exception '0xd' at guest RIP '0x4034be'
+
+
+
+kvm_handle_memory_failure
+kvm_prepare_emulation_failure_exit
+prepare_emulation_failure_exit
+
+
+
+
+/*
+ * Handles kvm_read/write_guest_virt*() result and either injects #PF or returns
+ * KVM_EXIT_INTERNAL_ERROR for cases not currently handled by KVM. Return value
+ * indicates whether exit to userspace is needed.
+ */
+int kvm_handle_memory_failure(struct kvm_vcpu *vcpu, int r,
+                  struct x86_exception *e)
+{
+    if (r == X86EMUL_PROPAGATE_FAULT) {
+        if (KVM_BUG_ON(!e, vcpu->kvm))
+            return -EIO;
+
+        kvm_inject_emulated_page_fault(vcpu, e);
+        return 1;
+    }
+
+    /*
+     * In case kvm_read/write_guest_virt*() failed with X86EMUL_IO_NEEDED
+     * while handling a VMX instruction KVM could've handled the request
+     * correctly by exiting to userspace and performing I/O but there
+     * doesn't seem to be a real use-case behind such requests, just return
+     * KVM_EXIT_INTERNAL_ERROR for now.
+     */
+    kvm_prepare_emulation_failure_exit(vcpu);
+
+    return 0;
+}
+
+
+# Random seed: 0x6b8b4567
+# Testing KVM_RUN with zero added memory regions
+# Testing MMIO during vectoring error handling
+# suberror = 3
+# Exit reason = 31
+# data[0] = 80000b0d
+# data[2] = 581
+# The data written to mmio address is: 13
+# GPA = c00000d0
+# testing MMIO
+# vm_exit reason = 6
+# mmio->phys_addr = 0xc0000000
+# mmio->data[0] = 5
+# mmio->data[1] = 0
+# mmio->data[2] = 0
+# mmio->data[3] = 0
+
+
+static void vt_get_exit_info(struct kvm_vcpu *vcpu, u32 *reason,
+            u64 *info1, u64 *info2, u32 *intr_info, u32 *error_code)
+{
+    if (is_td_vcpu(vcpu)) {
+        tdx_get_exit_info(vcpu, reason, info1, info2, intr_info,
+                  error_code);
+        return;
+    }
+
+    vmx_get_exit_info(vcpu, reason, info1, info2, intr_info, error_code);
+
+
+static void prepare_emulation_failure_exit(struct kvm_vcpu *vcpu, u64 *data,
+                       u8 ndata, u8 *insn_bytes, u8 insn_size)
+{
+    struct kvm_run *run = vcpu->run;
+    u64 info[5];
+    u8 info_start;
+
+    /*
+     * Zero the whole array used to retrieve the exit info, as casting to
+     * u32 for select entries will leave some chunks uninitialized.
+     */
+    memset(&info, 0, sizeof(info));
+
+    kvm_x86_call(get_exit_info)(vcpu, (u32 *)&info[0], &info[1], &info[2],
+                    (u32 *)&info[3], (u32 *)&info[4]);
+
+    run->exit_reason = KVM_EXIT_INTERNAL_ERROR;
+    run->emulation_failure.suberror = KVM_INTERNAL_ERROR_EMULATION;
+
+    /*
+     * There's currently space for 13 entries, but 5 are used for the exit
+     * reason and info.  Restrict to 4 to reduce the maintenance burden
+     * when expanding kvm_run.emulation_failure in the future.
+     */
+    if (WARN_ON_ONCE(ndata > 4))
+        ndata = 4;
+
+    /* Always include the flags as a 'data' entry. */
+    info_start = 1;
+    run->emulation_failure.flags = 0;
+
+    if (insn_size) {
+        BUILD_BUG_ON((sizeof(run->emulation_failure.insn_size) +
+                  sizeof(run->emulation_failure.insn_bytes) != 16));
+        info_start += 2;
+        run->emulation_failure.flags |=
+            KVM_INTERNAL_ERROR_EMULATION_FLAG_INSTRUCTION_BYTES;
+        run->emulation_failure.insn_size = insn_size;
+        memset(run->emulation_failure.insn_bytes, 0x90,
+               sizeof(run->emulation_failure.insn_bytes));
+        memcpy(run->emulation_failure.insn_bytes, insn_bytes, insn_size);
+    }
+
+    memcpy(&run->internal.data[info_start], info, sizeof(info));
+    memcpy(&run->internal.data[info_start + ARRAY_SIZE(info)], data,
+           ndata * sizeof(data[0]));
+
+    run->emulation_failure.ndata = info_start + ARRAY_SIZE(info) + ndata;
+}
+
+// data[1] = info[0] = reason
+// data[2] = info[1] = exit_qual 
+//data[3] = info[2] = idt_vector_info
+
+
+void vmx_get_exit_info(struct kvm_vcpu *vcpu, u32 *reason,
+               u64 *info1, u64 *info2, u32 *intr_info, u32 *error_code)
+{
+    struct vcpu_vmx *vmx = to_vmx(vcpu);
+
+    *reason = vmx->vt.exit_reason.full;
+    *info1 = vmx_get_exit_qual(vcpu);
+    if (!(vmx->vt.exit_reason.failed_vmentry)) {
+        *info2 = vmx->idt_vectoring_info;
+        *intr_info = vmx_get_intr_info(vcpu);
+        if (is_exception_with_error_code(*intr_info))
+            *error_code = vmcs_read32(VM_EXIT_INTR_ERROR_CODE);
+        else
+            *error_code = 0;
+    } else {
+        *info2 = 0;
+        *intr_info = 0;
+        *error_code = 0;
+    }
+}
+
+static void svm_get_exit_info(struct kvm_vcpu *vcpu, u32 *reason,
+                  u64 *info1, u64 *info2,
+                  u32 *intr_info, u32 *error_code)
+{
+    struct vmcb_control_area *control = &to_svm(vcpu)->vmcb->control;
+
+    *reason = control->exit_code;
+    *info1 = control->exit_info_1;
+    *info2 = control->exit_info_2;
+    *intr_info = control->exit_int_info;
+    if ((*intr_info & SVM_EXITINTINFO_VALID) &&
+        (*intr_info & SVM_EXITINTINFO_VALID_ERR))
+        *error_code = control->exit_int_info_err;
+    else
+        *error_code = 0;
+}
+
+The faulting guest physical address is saved in the
+VMCB's EXITINFO2 field; EXITINFO1 delivers an error code
+similar to a #PF errorcode:
+
+
+vmx_vcpu_run
+     -> vmx->vt.exit_reason.failed_vmentry = 1;
+     
+
+static void svm_get_exit_info(struct kvm_vcpu *vcpu, u32 *reason,
+                  u64 *info1, u64 *info2,
+                  u32 *intr_info, u32 *error_code)
+{
+    struct vmcb_control_area *control = &to_svm(vcpu)->vmcb->control;
+
+    *reason = control->exit_code;
+    *info1 = control->exit_info_1;
+    *info2 = control->exit_info_2;
+    *intr_info = control->exit_int_info;
+    if ((*intr_info & SVM_EXITINTINFO_VALID) &&
+        (*intr_info & SVM_EXITINTINFO_VALID_ERR))
+        *error_code = control->exit_int_info_err;
+    else
+        *error_code = 0;
+}
+
+FIELD(EXIT_QUALIFICATION, exit_qualification),
+
+/*
+ * Interruption-information format
+ */
+#define INTR_INFO_VECTOR_MASK           0xff            /* 7:0 */
+#define INTR_INFO_INTR_TYPE_MASK        0x700           /* 10:8 */
+#define INTR_INFO_DELIVER_CODE_MASK     0x800           /* 11 */
+#define INTR_INFO_UNBLOCK_NMI       0x1000      /* 12 */
+#define INTR_INFO_VALID_MASK            0x80000000      /* 31 */
+#define INTR_INFO_RESVD_BITS_MASK       0x7ffff000
+
+#define VECTORING_INFO_VECTOR_MASK              INTR_INFO_VECTOR_MASK
+#define VECTORING_INFO_TYPE_MASK            INTR_INFO_INTR_TYPE_MASK
+#define VECTORING_INFO_DELIVER_CODE_MASK        INTR_INFO_DELIVER_CODE_MASK
+#define VECTORING_INFO_VALID_MASK           INTR_INFO_VALID_MASK
+
+#define INTR_TYPE_EXT_INTR      (EVENT_TYPE_EXTINT << 8)    /* external interrupt */
+#define INTR_TYPE_RESERVED      (EVENT_TYPE_RESERVED << 8)  /* reserved */
+#define INTR_TYPE_NMI_INTR      (EVENT_TYPE_NMI << 8)       /* NMI */
+#define INTR_TYPE_HARD_EXCEPTION    (EVENT_TYPE_HWEXC << 8)     /* processor exception */
+#define INTR_TYPE_SOFT_INTR     (EVENT_TYPE_SWINT << 8)     /* software interrupt */
+#define INTR_TYPE_PRIV_SW_EXCEPTION (EVENT_TYPE_PRIV_SWEXC << 8)    /* ICE breakpoint */
+#define INTR_TYPE_SOFT_EXCEPTION    (EVENT_TYPE_SWEXC << 8)     /* software exception */
+#define INTR_TYPE_OTHER_EVENT       (EVENT_TYPE_OTHER << 8)     /* other event */
+
+
+https://lwn.net/Articles/950738/
+
+
+vmx.h
+
+/*
+ * Exit Qualifications for EPT Violations
+ */
+#define EPT_VIOLATION_ACC_READ      BIT(0)
+#define EPT_VIOLATION_ACC_WRITE     BIT(1)
+#define EPT_VIOLATION_ACC_INSTR     BIT(2)
+#define EPT_VIOLATION_PROT_READ     BIT(3)
+#define EPT_VIOLATION_PROT_WRITE    BIT(4)
+#define EPT_VIOLATION_PROT_EXEC     BIT(5)
+#define EPT_VIOLATION_EXEC_FOR_RING3_LIN BIT(6)
+#define EPT_VIOLATION_PROT_MASK     (EPT_VIOLATION_PROT_READ  | \
+                     EPT_VIOLATION_PROT_WRITE | \
+                     EPT_VIOLATION_PROT_EXEC)
+#define EPT_VIOLATION_GVA_IS_VALID  BIT(7)
+#define EPT_VIOLATION_GVA_TRANSLATED    BIT(8)
+
+#define EPT_VIOLATION_RWX_TO_PROT(__epte) (((__epte) & VMX_EPT_RWX_MASK) << 3)
+
+static_assert(EPT_VIOLATION_RWX_TO_PROT(VMX_EPT_RWX_MASK) ==
+          (EPT_VIOLATION_PROT_READ | EPT_VIOLATION_PROT_WRITE | EPT_VIOLATION_PROT_EXEC));
+
+/*
+ * Exit Qualifications for NOTIFY VM EXIT
+ */
+#define NOTIFY_VM_CONTEXT_INVALID     BIT(0)
+
+
+
