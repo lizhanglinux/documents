@@ -1,0 +1,16 @@
+OVS-DEBUG
+
+https://mail.openvswitch.org/pipermail/ovs-dev/2016-March/312023.html
+
+https://mail.openvswitch.org/pipermail/ovs-discuss/2016-April/040553.html
+
+https://github.com/openvswitch/ovs-issues/issues/324
+
+
+
+$ tunctl -t tap0
+$ ip link set tap0 up
+$ ovs-vsctl add-port br0 tap0
+
+
+tls_no_sanity_certificate = 1
