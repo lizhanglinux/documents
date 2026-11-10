@@ -1,0 +1,50 @@
+Performance review middle 
+
+1. TLS enablement:
+It has been enabled in libvirtd and hvd. It works well in production environment.
+2. Update machine type:
+* Provide the solution to update machine type
+* Learn to use database. And find out all the droplets with old machine type.
+3. OVS issue investigation and analyze
+OVS issue which occurs many times and it is reported to virt team. After analysis, it should be the network issue on the Host.
+4. Chef libvirt improvement
+* Submit a new solution to avoid libvirtd restarted in case template changes a little bit. Libvirtd service is restarted when template changes a little bit. This has been discussed a long time ago. I just submit a PR to improve this issue.
+5. Live migration:
+* Document all the issues which happen a lot of time and it is not resolved.
+* Did some investigation about acquire lock issue.
+6. KVM internal error issues
+* These kind of issues are too complicated. It related with guest, qemu and kvm. From KVM side, there are some situation should be considered and handle. There are several patches from upstream to handle some situation. We need to backport them.
+* From QEMU side, there are may be some issues to work with KVM in kernel.
+* From guest side, guest kernel may have bugs to cause the issue.
+
+Performance review End of the year: 
+
+1. libvirt TLS enablement project:
+To improve the security of the virtualization, we need to enable tls features in the libvirt as well as hvd. 
+By coworking with hvd team Sam, and this feature has been finished in our product.  It has been enabled in production. 
+
+2. Update machine type of droplets:
+* Provide the solution to update machine type
+* And find out all the droplets with old machine type.
+* There are too many droplets with old machine type in production. It still needs longer process to update the machine type in production.
+
+3. OVS issue investigation and analyze
+OVS issue which occurs many times and it is reported to virt team. After analysis, it should be the network issue on the Host.
+
+4. Chef libvirt improvement
+* Submit a new solution to avoid libvirtd restarted in case template changes a little bit. Libvirtd service is restarted when template changes a little bit. This has been   discussed a long time ago. I just submit a PR to improve this issue.
+
+5. Live migration:
+* Document all the issues which happen a lot of time and it is not resolved.
+* Did some investigation about acquire lock issue.
+
+6. KVM internal error issues
+* These kind of issues are too complicated. It is related with guest, qemu and kvm. From KVM side, there are some situation should be considered and handle. There are several patches from upstream to handle some situation. 
+1. Backport some KVM patches to new kernel to improve KVM crash issues. 
+2. QEMU upgrade project:  
+3.  This project is to upgrade QEMU version to newer version. 
+        It includes maintain our old QEMU patches and upgrade new version.  
+1.  Maintain QEMU patches and upgrade new version and package released 
+
+
+
