@@ -1,0 +1,51 @@
+lzhang@s2r5node84:~$ sudo devlink port add pci/0000:17:00.1 flavour pcisf pfnum 1 sfnum 88
+pci/0000:17:00.1/98304: type eth netdev eth2 flavour pcisf controller 0 pfnum 1 sfnum 88 splittable false
+  function:
+    hw_addr 00:00:00:00:00:00 state inactive opstate detached
+
+
+sudo devlink dev eswitch set pci/0000:17:00.1 mode switchdev
+sudo devlink port add pci/0000:17:00.1 flavour pcisf pfnum 1 sfnum 88
+
+
+sudo devlink port show en17f1pf1sf88
+sudo devlink port function set pci/0000:17:00.1/98304 hw_addr 00:00:00:00:88:88
+sudo ovs-vsctl add-port br0 en17f1pf1sf88
+sudo ip link set dev en17f1pf1sf88 up
+sudo devlink port function set pci/0000:17:00.1/98304 state active
+sudo devlink dev param set auxiliary/mlx5_core.sf.2 name enable_vnet value true cmode driverinit
+sudo devlink dev reload auxiliary/mlx5_core.sf.2
+
+
+mlxconfig -d 0000:17:00.1 query 
+
+mlxconfig -d 0000:06:00.0 s PF_BAR2_ENABLE=0 PER_PF_NUM_SF=1 PF_TOTAL_SF=252 PF_SF_BAR_SIZE=10 SRIOV_EN=0
+
+
+lzhang@s2r5node84:~$ devlink port show
+auxiliary/mlx5_core.eth.0/65535: type eth netdev eth0 flavour physical port 0 splittable false
+pci/0000:17:00.1/98304: type eth netdev en17f1pf1sf88 flavour pcisf controller 0 pfnum 1 sfnum 88 splittable false
+  function:
+    hw_addr 00:00:00:00:88:88 state active opstate attached
+auxiliary/mlx5_core.eth.1/131071: type eth netdev eth1 flavour physical port 1 splittable false
+
+
+
+tree -l -L 3 -P "mlx5_core.sf." /sys/bus/auxiliary/devices/
+
+
+$ echo mlx5_core.sf.4 > /sys/bus/auxiliary/devices/mlx5_core.sf.4/driver/unbind
+ $ echo mlx5_core.sf.4 > /sys/bus/auxiliary/drivers/mlx5_core.sf/bind
+
+echo mlx5_core.sf.2 |sudo tee /sys/bus/auxiliary/devices/mlx5_core.sf.2/driver/unbind
+echo mlx5_core.sf.2 | sudo tee /sys/bus/auxiliary/drivers/mlx5_core.sf/bind
+
+
+devlink port show auxiliary/mlx5_core.sf.4/1     (Doesn’t work at all)
+vdpa mgmtdev show
+
+
+https://access.redhat.com/solutions/7048737. (With bonds vDPA failed)
+
+
+devlink dev param show  (Check the auxiliary device parameter, I found enable_vnet is still false. It is not enabled, that’s why sf devices are not found)
