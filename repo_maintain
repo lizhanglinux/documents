@@ -1,0 +1,15 @@
+Create one clean upstream  code tree
+
+git checkout --orphan upstream-clean
+rm -rf debian .github .gitignore qemu/*.buildinfo qemu/*.changes
+git add .
+git commit -m "Clean upstream source for tag"
+git tag upstream/6.2+dfsg
+git push origin upstream/6.2+dfsg
+
+
+Gbp build-package —ignore
+
+1:6.1.1+dfsg-0digitalocean40
+
+Debian, 
