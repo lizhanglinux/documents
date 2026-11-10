@@ -1,0 +1,66 @@
+GPU test
+
+
+* Test Steps:
+    1. Log into the guest OS.
+    2. Run vendor-specific detection commands:
+        * Linux (NVIDIA): nvidia-smi
+        * Linux (AMD): rocm-smi or clinfo
+        * Windows: Check Device Manager → Display Adapters
+    3. Verify GPU model, driver version, and CUDA core count are correctly displayed.
+
+Test Case 2: Compute API Detection
+* ID: AI-FUNC-002
+* Objective: Confirm that compute frameworks (CUDA/ROCm/OpenCL) can detect the GPU.
+* Prerequisites: CUDA Toolkit or ROCm installed in guest.
+* Test Steps:
+    1. Run device query utility:
+        * CUDA: deviceQuery (from CUDA samples)
+        * ROCm: rocminfo
+    2. Check for GPU detection and compute capability version.
+* Expected Result: The utility successfully enumerates the GPU, displays compute capability (e.g., "CUDA Capable device(s) detected"), and reports correct device count
+
+
+
+* Objective: Verify that the guest OS detects the passed-through GPU and its compute capabilities.
+* Prerequisites: VM with PCI passthrough configured, GPU drivers installed in guest.
+* Test Steps:
+    1. Log into the guest OS.
+    2. Run vendor-specific detection commands:
+        * Linux (NVIDIA): nvidia-smi
+        * Linux (AMD): rocm-smi or clinfo
+        * Windows: Check Device Manager → Display Adapters
+    3. Verify GPU model, driver version, and CUDA core count are correctly displayed.
+* Expected Result: nvidia-smi shows the GPU model (e.g., RTX 4090), driver version, and no errors. The GPU should appear with proper utilization metrics showing 0% initial usage
+
+
+
+Basic Matrix Computation
+* Objective: Verify that the GPU can perform simple mathematical operations.
+* Prerequisites: CUDA samples compiled.
+* Test Steps:
+    1. Run ./vectorAdd from CUDA samples.
+    2. Run ./matrixMul from CUDA samples.
+* Expected Result: Both tests complete with "Test PASSED" messages and correct result verification
+
+
+* Host-to-Device (H2D): The bandwidth from your CPU/System RAM to the GPU via the PCIe bus.
+* Device-to-Host (D2H): The bandwidth from the GPU back to the CPU via PCIe.
+* Device-to-Device (D2D): Peer-to-peer bandwidth between multiple GPUs using NVLink (if available) or PCIe.
+
+
+AI Training Workload
+* Objective: Test real-world AI model training performance.
+* Prerequisites: ML framework (PyTorch/TensorFlow) with GPU support.
+* 
+
+Run a standard benchmark model, e.g., LLaMA Factory for LLM fine-tuning
+
+        * Training throughput (samples/sec)
+        * Time per epoch
+        * GPU utilization (from nvidia-smi)
+* 
+
+
+
+NVIDIA nvbandwidth
